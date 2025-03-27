@@ -1,3 +1,0 @@
-[soaapp@SOAUATAPP1 javaa]$ java TransformDigit
-Enter single decimal digit range 0-9: 3
-Result: 3702

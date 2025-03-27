@@ -32,7 +32,7 @@ jobs:
 
 
       - name: Build Docker image
-        run: docker build -t ${{ env.REGISTRY }}_secure-nginx:1.19:${{ github.sha }} . || exit 1
+        run: docker build -t ${{ env.REGISTRY }}_secure-nginx:1.19:${{ github.sha }} QA-01/. || exit 1
 
 
       - name: Scan with Trivy

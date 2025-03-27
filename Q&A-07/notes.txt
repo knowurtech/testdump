@@ -1,2 +1,0 @@
-[soaapp@SOAUATAPP1 javaa]$ java GetCommonElements
-Common Element array: [12, 25]
