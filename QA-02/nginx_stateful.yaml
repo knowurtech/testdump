@@ -6,7 +6,7 @@ metadata:
   labels:
     app: nginx
 spec:
-  serviceName: "nginx-service"
+  serviceName: "headless-svc"
   replicas: 3
   selector:
     matchLabels:
@@ -32,10 +32,10 @@ spec:
           resources:
             limits:
               memory: "512Mi"
-              cpu: "0.5"
+              cpu: "500m"
             requests:
               memory: "256Mi"
-              cpu: "0.2m"
+              cpu: "200m"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -57,19 +57,16 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 3
             failureThreshold: 3
-          imagePullSecrets:
-          - name: github-container-registry
+            
+      imagePullSecrets:
+        - name: github-container-registry
           
-      volumes:
-        - name: nginx-storage
-          persistentVolumeClaim:
-            claimName: nginx-persist
 
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: nginx-persist
+  name: nginx-storage
   namespace: nginx-namespace
 spec:
   accessModes:
@@ -77,6 +74,22 @@ spec:
   resources:
     requests:
       storage: 8Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-svc
+  namespace: nginx-namespace
+spec:
+  clusterIP: None
+  selector:
+    app: nginx
+  ports:
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443
 
 ---
 apiVersion: v1
