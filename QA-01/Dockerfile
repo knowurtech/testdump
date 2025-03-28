@@ -8,7 +8,6 @@ USER newnginx
 
 EXPOSE 443
 
-COPY securenginx.conf /etc/nginx/nginx.conf
 ENTRYPOINT ["/sbin/tini", "--"]
 
 CMD ["nginx", "-g", "daemon off;"]
