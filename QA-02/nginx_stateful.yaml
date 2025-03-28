@@ -21,6 +21,7 @@ spec:
         runAsGroup: 1003
         fsGroup: 2007
         runAsNonRoot: true
+        
       containers:
         - name: nginx
           image: secure-nginx:1.19-apline
@@ -70,7 +71,7 @@ metadata:
   namespace: nginx-namespace
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: 8Gi
