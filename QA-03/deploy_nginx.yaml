@@ -79,8 +79,6 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config  # Secure the file
 
-      # - name: Load Kubernetes config
-      #   run: echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
 
       - name: Deploy to Kubernetes
         run: |
