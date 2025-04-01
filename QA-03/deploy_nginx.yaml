@@ -64,7 +64,7 @@ jobs:
 
       - name: Update Kubernetes deployment file
         run: |
-          NEW_IMAGE="${{ REGISTRY }}/secure-nginx:1.19-${{ github.sha }}"          
+          NEW_IMAGE="${{ env.REGISTRY }}/secure-nginx:1.19-${{ github.sha }}"          
           sed -i "s|image: .*|image: ${NEW_IMAGE}|g" QA-02/nginx_stateful.yaml
           echo "Updated deployment to use image: ${NEW_IMAGE}"
 
@@ -83,7 +83,7 @@ jobs:
       - name: Commit and push changes
         run: |
           git add QA-02/nginx_stateful.yaml
-          git commit -m "Updated deployment with new image name: ${{ REGISTRY }}/secure-nginx:1.19-${{ github.sha }}" || echo "No changes to commit"
+          git commit -m "Updated deployment with new image name: ${{ env.REGISTRY }}/secure-nginx:1.19-${{ github.sha }}" || echo "No changes to commit"
           git push
 
 
