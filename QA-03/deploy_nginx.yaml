@@ -7,7 +7,8 @@ on:
   pull_request:
     branches:
       - main
-
+  
+                                         
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,6 +20,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: testrunaccion
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -30,23 +33,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GCRTOKEN }}
 
-      - name: Verify Files in Workspace
-        run: ls -R; pwd
-
       - name: Build Docker image
-        run: docker build -t "${{ env.REGISTRY }}/${{ github.actor }}/secure-nginx:1.19-${{ github.sha }}" QA-01/. || exit 1
+        run: docker build -t "${{ env.REGISTRY }}/${{ github.actor }}/secure-nginx:1.19-alpine${{ github.sha }}" QA-01/. || exit 1
 
 
       - name: Scan with Trivy
         uses: aquasecurity/trivy-action@0.26.0
         with:
-          image-ref: "${{ env.REGISTRY }}/${{ github.actor }}/secure-nginx:1.19-${{ github.sha }}"
+          image-ref: "${{ env.REGISTRY }}/${{ github.actor }}/secure-nginx:1.19-alpine${{ github.sha }}"
           format: table
           exit-code: 1
           severity: HIGH,CRITICAL
 
       - name: Push to GCR
-        run: docker push "${{ env.REGISTRY }}/${{ github.actor }}/secure-nginx:1.19-${{ github.sha }}" || exit 1
+        run: docker push "${{ env.REGISTRY }}/${{ github.actor }}/secure-nginx:1.19-alpine${{ github.sha }}" || exit 1
 
 
   deploy:
@@ -57,39 +57,94 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: testrunaccion
 
+          
       - name: Setup Git config
         run: |
           git config user.name "knowurtech"
           git config user.email "shifahim@gmail.com"
 
-
       - name: Update Kubernetes deployment file
         run: |
-          NEW_IMAGE="${{ env.REGISTRY }}/secure-nginx:1.19-${{ github.sha }}"          
+          NEW_IMAGE="${{ env.REGISTRY }}/${{ github.actor }}/secure-nginx:1.19-alpine${{ github.sha }}"          
           sed -i "s|image: .*|image: ${NEW_IMAGE}|g" QA-02/nginx_stateful.yaml
           echo "Updated deployment to use image: ${NEW_IMAGE}"
+
+      - name: Create nginx-storage directory and add index.html used for Probe
+        run: |
+          mkdir -p /home/runner/nginx-storage
+          echo "<html><body><h1>Mohtashim Nginx!</h1></body></html>" > /home/runner/nginx-storage/index.html
 
       - name: Set up Kubectl
         uses: azure/setup-kubectl@v3
 
-      - name: Load Kubernetes config
+      - name: Install Kind
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
-          chmod 600 ~/.kube/config  # Secure the file
+          curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.18.0/kind-linux-amd64
+          chmod +x ./kind
+          mv ./kind /usr/local/bin/kind
 
+      - name: Create Kind Cluster
+        run: |
+          kind create cluster --name secure-nginx-cluster --config QA-02/kind-cluster-config.yaml
+
+      - name: Create image pull secret
+        run: |
+          kubectl create namespace nginx-namespace --dry-run=client -o yaml | kubectl apply -f -
+    
+          kubectl create secret docker-registry github-container-registry \
+            --namespace=nginx-namespace \
+            --docker-server=${{ env.REGISTRY }} \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GCRTOKEN }} \
+            --docker-email=shifahim@gmail.com \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # - name: Load Kubernetes config incase of Cloud providers
+      #   run: |
+      #     mkdir -p ~/.kube
+      #     echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+      #     chmod 600 ~/.kube/config  # Secure the file
 
       - name: Deploy to Kubernetes
         run: |
+
+          kubectl get namespace nginx-namespace
+          kubectl config set-context --current --namespace=nginx-namespace
+
+          kubectl get secret github-container-registry -n nginx-namespace || echo "Secret not found"
+
           kubectl apply -f QA-02/nginx_stateful.yaml || exit 1
-          kubectl rollout status statefulset/securenginx-statefulset || exit 1
+
+          kubectl get nodes
+          kubectl get pods -n nginx-namespace
+          kubectl describe pods -n nginx-namespace
+          kubectl describe statefulset nginx-statefulset -n nginx-namespace  
+
+          kubectl wait --for=condition=Ready pod/nginx-statefulset-0 -n nginx-namespace --timeout=60s
+          kubectl wait --for=condition=Ready pod/nginx-statefulset-1 -n nginx-namespace --timeout=60s
+          kubectl get pods -n nginx-namespace -o wide
+          kubectl logs nginx-statefulset-0 -n nginx-namespace
+          kubectl get storageclass
+          kubectl get pvc -n nginx-namespace
+          kubectl get pv -n nginx-namespace
+          echo "start1"
+          kubectl get statefulset nginx-statefulset -n nginx-namespace
+          echo "end1"
+          echo "start2"
+          kubectl get statefulset nginx-statefulset -n nginx-namespace -o json | jq '.status.conditions'
+          echo "end2"
+          kubectl describe statefulset nginx-statefulset -n nginx-namespace
+          kubectl get statefulset nginx-statefulset -n nginx-namespace -o yaml
+          kubectl rollout status statefulset/nginx-statefulset -n nginx-namespace || exit 1
 
 
       - name: Commit and push changes
         run: |
           git add QA-02/nginx_stateful.yaml
-          git commit -m "Updated deployment with new image name: ${{ env.REGISTRY }}/secure-nginx:1.19-${{ github.sha }}" || echo "No changes to commit"
+          git commit -m "Updated deployment with new image name: ${{ env.REGISTRY }}/secure-nginx:1.19-alpine${{ github.sha }}" || echo "No changes to commit"
           git push
 
 
@@ -102,7 +157,9 @@ jobs:
       if: ${{ needs.build.result == 'success' && needs.deploy.result == 'success' }}
       run: |
         echo "Sending out notification for successful deployment using email or slack"
+
     - name: Notify on Failure
       if: ${{ needs.build.result != 'success' || needs.deploy.result != 'success' }}
       run: |
         echo "Sending out notification for Failed deployment using email or slack"
+        exit 1;
