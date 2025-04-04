@@ -1,1 +1,4 @@
 kubectl apply -f deploy_nginx.yml
+
+docker exec -it testcontainer /bin/sh
+kubectl exec -it nginx-statefulset-0 -n nginx-namespace -- sh
