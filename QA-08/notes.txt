@@ -1,3 +1,31 @@
 [soaapp@SOAUATAPP1 javaa]$ java TransformDigit
 Enter single decimal digit range 0-9: 3
 Result: 3702
+
+
+name: Run Java
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Build with Maven
+      run: javac -d . QA-08/TransformDigit.java
+
+    - name: Run the application
+      run: java QA-08/TransformDigit
